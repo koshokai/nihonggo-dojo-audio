@@ -7,4 +7,3 @@
 - `en-h/`：单词的真人录音（Wikimedia Commons / Lingua Libre，作者和授权见主站「内容来源」；`index-en-human.json`）
 
 录音由 `.github/workflows/kokoro.yml` 生成：文字和脚本取自 koshokai/nihonggo-dojo。
-- `ko/`、`ko-h/`、`ko-hg/`、`ko-listen/`：韩语录音（韩语板块现在隐藏）。生成脚本在主仓库 tools/（gen_audio_melo.py 等），重新生成时把输出放到这里。
