@@ -1,6 +1,6 @@
 # 英语发音：Kokoro（Apache 2.0）。这个文件放在 koshokai/nihonggo-dojo-audio 的 .github/workflows/kokoro.yml。
 # 英语录音放在这个单独的仓库（GitHub Pages 一个网站最多 1 GB，主站放不下），网站从 https://koshokai.github.io/nihonggo-dojo-audio/ 读取。
-# 生成脚本和文字（lang/en-*.json）从公开仓库 koshokai/nihonggo-dojo 取（不需要密钥）。分 8 片并行，最后合并提交到本仓库。在 Actions 页面手动运行。
+# 生成脚本和文字（lang/en-*.json）从 koshokai/nihonggo-dojo 取（仓库是私有的，用本仓库 Secret 里的 MAIN_REPO_TOKEN 读取）。分 8 片并行，最后合并提交到本仓库。在 Actions 页面手动运行。
 name: Kokoro English audio
 
 on:
@@ -42,6 +42,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}   # 主仓库改成私有后需要：只读 Contents 权限的 fine-grained token
           ref: ${{ inputs.ref }}
           path: src
           sparse-checkout: |
@@ -76,6 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}   # 主仓库改成私有后需要：只读 Contents 权限的 fine-grained token
           ref: ${{ inputs.ref }}
           path: src
           sparse-checkout: |
@@ -108,6 +110,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}   # 主仓库改成私有后需要：只读 Contents 权限的 fine-grained token
           ref: ${{ inputs.ref }}
           path: src
           sparse-checkout: tools
