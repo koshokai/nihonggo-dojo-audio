@@ -1,0 +1,136 @@
+# 英语发音：Kokoro（Apache 2.0）。这个文件放在 koshokai/nihonggo-dojo-audio 的 .github/workflows/kokoro.yml。
+# 英语录音放在这个单独的仓库（GitHub Pages 一个网站最多 1 GB，主站放不下），网站从 https://koshokai.github.io/nihonggo-dojo-audio/ 读取。
+# 生成脚本和文字（lang/en-*.json）从 koshokai/nihonggo-dojo 取（仓库是私有的，用本仓库 Secret 里的 MAIN_REPO_TOKEN 读取）。分 8 片并行，最后合并提交到本仓库。在 Actions 页面手动运行。
+name: Kokoro English audio
+
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: text（单词、例句、语法例句、阅读正文，默认）/ listen（只生成听力对话）/ all（两种都做）
+        required: false
+        default: text
+      force:
+        description: 全部重新生成（例如改了音量、声音）
+        type: boolean
+        default: false
+      ref:
+        description: 从 nihonggo-dojo 的哪个分支取文字和脚本
+        required: false
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kokoro
+  cancel-in-progress: false
+
+jobs:
+  text:
+    if: inputs.which != 'listen'
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}   # 主仓库改成私有后需要：只读 Contents 权限的 fine-grained token
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" soundfile numpy
+      - name: Generate
+        run: EN_AUDIO_DIR=$GITHUB_WORKSPACE/site KOKORO_FORCE=${{ inputs.force && '1' || '' }} python3 src/tools/gen_audio_kokoro.py text --shard ${{ matrix.shard }} --shards 8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: en-${{ matrix.shard }}
+          path: |
+            src/audio-new
+            site/index-en.${{ matrix.shard }}.json
+          retention-days: 2
+
+  listen:
+    if: inputs.which != 'text'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}   # 主仓库改成私有后需要：只读 Contents 权限的 fine-grained token
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" soundfile numpy
+      - name: Generate
+        run: EN_AUDIO_DIR=$GITHUB_WORKSPACE/site KOKORO_FORCE=${{ inputs.force && '1' || '' }} python3 src/tools/gen_audio_kokoro.py listen
+      - uses: actions/upload-artifact@v4
+        with:
+          name: en-listen
+          path: |
+            site/en-listen
+            site/index-en-listen.json
+          retention-days: 2
+
+  commit:
+    needs: [text, listen]
+    if: always() && needs.listen.result != 'cancelled' && needs.text.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}   # 主仓库改成私有后需要：只读 Contents 权限的 fine-grained token
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: tools
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/art
+      - name: Merge and commit
+        run: |
+          # 文字分片：artifact 里是 src/audio-new/en-k（只有新生成的）和 site/index-en.<片>.json；听力：en-listen/ 和 index-en-listen.json
+          for d in /tmp/art/*; do
+            if [ -d "$d/src/audio-new" ]; then cp -r "$d/src/audio-new/." .; fi
+            if [ -d "$d/site" ]; then cp -r "$d/site/." .; fi
+            if [ -d "$d/en-listen" ]; then cp -r "$d/." .; fi
+            cp "$d"/index-en.*.json . 2>/dev/null || true   # 这一片没有新录音时 artifact 里只有索引
+          done
+          EN_AUDIO_DIR=$PWD python3 src/tools/gen_audio_kokoro.py merge
+          rm -rf src
+          git config user.name "kokoro-bot"
+          git config user.email "kokoro-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -qm "audio: English voices (Kokoro)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs origin main && git push -q origin HEAD:main && break; sleep 5; done

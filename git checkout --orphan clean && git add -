@@ -1,0 +1,2 @@
+git checkout --orphan clean && git add -A && git commit -qm "英语录音：历史记录重新开始" && git push -f origin clean:main && git log --oneline | wc -l
+

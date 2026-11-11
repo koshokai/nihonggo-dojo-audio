@@ -1,0 +1,141 @@
+# 会员录音（日语 VOICEVOX、中文 MeloTTS、英语 Kokoro）：在这个公开仓库里跑，不占私有主仓库的 GitHub Actions 免费额度。
+# 脚本和文字从私有仓库 koshokai/nihonggo-dojo 取（MAIN_REPO_TOKEN，只读）；会员内容从服务器（Supabase）读，录音上传到 Supabase 的私有存储。
+# 本仓库里不留任何会员内容；日志是公开的，所以脚本用 PUBLIC_LOG 只输出进度数字，不输出句子。
+# 需要的 Secret：MAIN_REPO_TOKEN（已有）、SUPABASE_SERVICE_ROLE_KEY（Settings → Secrets and variables → Actions 里添加）。
+# 在 Actions 页面手动运行。mode 可以写几个，用空格分开。已经生成过的会跳过，可以反复运行。
+name: Member audio
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: ja-course / ja-listen / ja-biz / ja-read / anime-daily / zh / en（可以写几个，空格分开）
+        required: true
+        default: 'zh en'
+      ref:
+        description: 从 nihonggo-dojo 的哪个分支取脚本
+        required: false
+        default: wip-en
+
+permissions:
+  contents: read
+
+env:
+  MODES: ${{ inputs.mode }}
+  SUPABASE_URL: https://tpwljbzjixdggqjsgltf.supabase.co
+  PUBLIC_LOG: '1'
+  # 出错时的报错信息也可能带句子：带非 ASCII 字符或引号的行一律隐藏
+  REDACT: |
+    import sys
+    for l in sys.stdin: print(l.rstrip() if l.isascii() and "'" not in l and '"' not in l else '  (detail hidden)', flush=True)
+
+jobs:
+  ja:
+    if: ${{ contains(inputs.mode, 'ja-') || contains(inputs.mode, 'anime-daily') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    concurrency:
+      group: member-audio-ja
+      cancel-in-progress: false
+    services:
+      voicevox:
+        image: voicevox/voicevox_engine:cpu-latest
+        ports:
+          - 50021:50021
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            audio/index-course.json
+            audio/index-listen.json
+            audio/index-biz.json
+            audio/index-reading.json
+            audio/index-words.json
+            audio/voice.json
+          sparse-checkout-cone-mode: false
+      - name: Tools
+        run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+      - name: Generate & upload
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash -o pipefail {0}
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
+          for M in $MODES; do case "$M" in ja-*|anime-daily) python3 tools/gen_member_audio.py $M 2>&1 | python3 -u -c "$REDACT";; esac; done
+
+  zh:
+    if: ${{ contains(format(' {0} ', inputs.mode), ' zh ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    concurrency:
+      group: member-audio-zh
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+            audio/index-zh.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install MeloTTS
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq ffmpeg
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          git clone -q --depth 1 https://github.com/myshell-ai/MeloTTS /tmp/MeloTTS
+          pip install -q -e /tmp/MeloTTS
+          python -m unidic download
+          python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)"
+      - name: Generate & upload
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash -o pipefail {0}
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
+          python3 tools/gen_member_audio.py zh 2>&1 | python3 -u -c "$REDACT"
+
+  en:
+    if: ${{ contains(format(' {0} ', inputs.mode), ' en ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    concurrency:
+      group: member-audio-en
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: tools
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kokoro
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" soundfile numpy
+      - name: Generate & upload
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash -o pipefail {0}
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
+          python3 tools/gen_member_audio.py en 2>&1 | python3 -u -c "$REDACT"
