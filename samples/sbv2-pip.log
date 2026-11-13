@@ -1,11 +1,5 @@
-
-[notice] A new release of pip is available: 26.2.2 -> 26.3
-[notice] To update, run: pip install --upgrade pip
-
-[notice] A new release of pip is available: 26.2.2 -> 26.3
-[notice] To update, run: pip install --upgrade pip
 numba               0.68.1
-numpy               2.4.6
+numpy               1.26.4
 pyopenjtalk-dict    0.3.4.dev2
 pyworld-prebuilt    0.3.6.post1
 style-bert-vits2    2.5.0
