@@ -1,0 +1,30 @@
+/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:  62%|██████▏   | 246/399 [00:00<00:00, 2347.99it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2487.95it/s]
+[32m11-13 22:37:21[0m |[1m  INFO  [0m| bert_models.py:92 | Loaded the Languages.JP BERT model from ku-nlp/deberta-v2-large-japanese-char-wwm
+[32m11-13 22:37:22[0m |[1m  INFO  [0m| bert_models.py:154 | Loaded the Languages.JP BERT tokenizer from ku-nlp/deberta-v2-large-japanese-char-wwm
+[32m11-13 22:37:26[0m |[1m  INFO  [0m| tts_model.py:259 | Start generating audio data from text:
+おはようございます。今日はいい天気ですね。
+[32m11-13 22:37:26[0m |[1m  INFO  [0m| infer.py:24 | Using JP-Extra model
+/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/utils/weight_norm.py:145: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[32m11-13 22:37:27[0m |[1m  INFO  [0m| safetensors.py:50 | Loaded '/home/runner/.cache/huggingface/hub/models--litagin--style_bert_vits2_jvnv/snapshots/205830ca1d49e666ddfbf2a755f0108e9cade4dd/jvnv-F1-jp/jvnv-F1-jp_e160_s14000.safetensors' (iteration 160)
+fail jvnv-F1-jp ValueError numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
+[32m11-13 22:37:31[0m |[1m  INFO  [0m| tts_model.py:259 | Start generating audio data from text:
+おはようございます。今日はいい天気ですね。
+[32m11-13 22:37:31[0m |[1m  INFO  [0m| infer.py:24 | Using JP-Extra model
+/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/utils/weight_norm.py:145: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[32m11-13 22:37:31[0m |[1m  INFO  [0m| safetensors.py:50 | Loaded '/home/runner/.cache/huggingface/hub/models--litagin--style_bert_vits2_jvnv/snapshots/205830ca1d49e666ddfbf2a755f0108e9cade4dd/jvnv-F2-jp/jvnv-F2_e166_s20000.safetensors' (iteration 166)
+fail jvnv-F2-jp ValueError numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
+[32m11-13 22:37:36[0m |[1m  INFO  [0m| tts_model.py:259 | Start generating audio data from text:
+おはようございます。今日はいい天気ですね。
+[32m11-13 22:37:36[0m |[1m  INFO  [0m| infer.py:24 | Using JP-Extra model
+[32m11-13 22:37:36[0m |[1m  INFO  [0m| safetensors.py:50 | Loaded '/home/runner/.cache/huggingface/hub/models--litagin--style_bert_vits2_jvnv/snapshots/205830ca1d49e666ddfbf2a755f0108e9cade4dd/jvnv-M1-jp/jvnv-M1-jp_e158_s14000.safetensors' (iteration 158)
+fail jvnv-M1-jp ValueError numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
+[32m11-13 22:37:40[0m |[1m  INFO  [0m| tts_model.py:259 | Start generating audio data from text:
+おはようございます。今日はいい天気ですね。
+[32m11-13 22:37:40[0m |[1m  INFO  [0m| infer.py:24 | Using JP-Extra model
+[32m11-13 22:37:40[0m |[1m  INFO  [0m| safetensors.py:50 | Loaded '/home/runner/.cache/huggingface/hub/models--litagin--style_bert_vits2_jvnv/snapshots/205830ca1d49e666ddfbf2a755f0108e9cade4dd/jvnv-M2-jp/jvnv-M2-jp_e159_s17000.safetensors' (iteration 159)
+fail jvnv-M2-jp ValueError numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
