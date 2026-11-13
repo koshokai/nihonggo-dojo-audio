@@ -49,7 +49,11 @@ def sbv2():
     from style_bert_vits2.constants import Languages
     from style_bert_vits2.nlp import bert_models
     from style_bert_vits2.tts_model import TTSModel
-    bert_models.load_model(Languages.JP, 'ku-nlp/deberta-v2-large-japanese-char-wwm')
+    bm = bert_models.load_model(Languages.JP, 'ku-nlp/deberta-v2-large-japanese-char-wwm')
+    try:
+        bm.float()   # CPU 上用全精度（半精度的输出和合成模型对不上）
+    except Exception as e:
+        print('float() failed', e)
     bert_models.load_tokenizer(Languages.JP, 'ku-nlp/deberta-v2-large-japanese-char-wwm')
     repo = 'litagin/style_bert_vits2_jvnv'
     files = list_repo_files(repo)
