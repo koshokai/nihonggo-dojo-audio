@@ -65,7 +65,7 @@ def sbv2():
             meta(key, f'Style-Bert-VITS2 JVNV {note}', 'Style-Bert-VITS2 JVNV (CC BY-SA 4.0)')
             print('ok', key)
         except Exception as e:   # 一个声音失败不影响其他的
-            print('fail', name, type(e).__name__, str(e)[:200])
+            import traceback; print('fail', name, type(e).__name__, str(e)[:200]); print(''.join(traceback.format_exc().splitlines(True)[-8:]))
 
 
 def page():
