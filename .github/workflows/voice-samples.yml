@@ -31,7 +31,7 @@ jobs:
         run: |
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
           pip install -q style-bert-vits2 soundfile huggingface_hub 2>&1 | tail -5 | tee samples/sbv2-pip.log
-          pip install -q -U "numpy>=2" 2>&1 | tail -3 | tee -a samples/sbv2-pip.log || true
+          pip install -q "numpy==1.26.4" 2>&1 | tail -3 | tee -a samples/sbv2-pip.log || true
           pip list 2>/dev/null | grep -i "numpy\|pyworld\|numba\|style\|openjtalk" | tee -a samples/sbv2-pip.log || true
           (python3 tools/voice_samples.py sbv2 2>&1 || true) | grep -v "INFO\|Warning\|warn" | tail -60 | tee samples/sbv2.log || true
       - name: Page
