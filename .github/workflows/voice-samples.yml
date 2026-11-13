@@ -1,0 +1,43 @@
+# 日语声音试听：几种声音读同样的 5 句话，生成 samples/ 下的 mp3 和试听页面
+# https://koshokai.github.io/nihonggo-dojo-audio/samples/
+name: Voice samples
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      voicevox:
+        image: voicevox/voicevox_engine:cpu-latest
+        ports:
+          - 50021:50021
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Tools
+        run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+      - name: VOICEVOX
+        run: |
+          for i in $(seq 60); do curl -sf http://127.0.0.1:50021/version && break; sleep 3; done
+          python3 tools/voice_samples.py voicevox
+      - name: Style-Bert-VITS2 (JVNV)
+        continue-on-error: true
+        timeout-minutes: 35
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q style-bert-vits2 soundfile huggingface_hub
+          python3 tools/voice_samples.py sbv2
+      - name: Page
+        run: python3 tools/voice_samples.py page
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add samples
+          git diff --cached --quiet && exit 0
+          git commit -qm "voice samples"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
