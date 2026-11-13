@@ -38,5 +38,21 @@
  "vv-47": {
   "label": "VOICEVOX ナースロボ＿タイプＴ（ノーマル）",
   "credit": "VOICEVOX:ナースロボ＿タイプＴ"
+ },
+ "sbv2-F1": {
+  "label": "Style-Bert-VITS2 JVNV 女声 1",
+  "credit": "Style-Bert-VITS2 JVNV (CC BY-SA 4.0)"
+ },
+ "sbv2-F2": {
+  "label": "Style-Bert-VITS2 JVNV 女声 2",
+  "credit": "Style-Bert-VITS2 JVNV (CC BY-SA 4.0)"
+ },
+ "sbv2-M1": {
+  "label": "Style-Bert-VITS2 JVNV 男声 1",
+  "credit": "Style-Bert-VITS2 JVNV (CC BY-SA 4.0)"
+ },
+ "sbv2-M2": {
+  "label": "Style-Bert-VITS2 JVNV 男声 2",
+  "credit": "Style-Bert-VITS2 JVNV (CC BY-SA 4.0)"
  }
 }

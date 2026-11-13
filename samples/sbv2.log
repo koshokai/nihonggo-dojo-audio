@@ -1,50 +1,32 @@
-Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:  63%|██████▎   | 250/399 [00:00<00:00, 2483.00it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2568.73it/s]
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights:  65%|██████▍   | 258/399 [00:00<00:00, 2547.96it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2723.42it/s]
 おはようございます。今日はいい天気ですね。
   WeightNorm.apply(module, name, dim)
 Downloading: "https://github.com/r9y9/open_jtalk/releases/download/v1.11.1/open_jtalk_dic_utf_8-1.11.tar.gz"
-dic.tar.gz: 0.00B [00:00, ?B/s]dic.tar.gz:   0%|          | 8.00k/22.6M [00:00<08:19, 47.3kB/s]dic.tar.gz: 100%|██████████| 22.6M/22.6M [00:00<00:00, 104MB/s] 
+dic.tar.gz: 0.00B [00:00, ?B/s]dic.tar.gz:   0%|          | 8.00k/22.6M [00:00<12:57, 30.4kB/s]dic.tar.gz:  23%|██▎       | 5.16M/22.6M [00:00<00:00, 18.8MB/s]dic.tar.gz: 100%|██████████| 22.6M/22.6M [00:00<00:00, 52.0MB/s]
 Extracting tar file /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/pyopenjtalk/dic.tar.gz
-fail jvnv-F1-jp RuntimeError Input type (c10::Half) and bias type (float) should be the same
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 385, in forward
-    return self._conv_forward(input, self.weight, self.bias)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 380, in _conv_forward
-    return F.conv1d(
-           ^^^^^^^^^
-RuntimeError: Input type (c10::Half) and bias type (float) should be the same
-
+駅の前に、新しいパン屋ができました。
+すみません、この電車は東京駅に止まりますか。
+週末は友だちと映画を見に行くつもりです。
+日本語の勉強は大変ですが、とても楽しいです。
+ok sbv2-F1
 おはようございます。今日はいい天気ですね。
   WeightNorm.apply(module, name, dim)
-fail jvnv-F2-jp RuntimeError Input type (c10::Half) and bias type (float) should be the same
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 385, in forward
-    return self._conv_forward(input, self.weight, self.bias)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 380, in _conv_forward
-    return F.conv1d(
-           ^^^^^^^^^
-RuntimeError: Input type (c10::Half) and bias type (float) should be the same
-
+駅の前に、新しいパン屋ができました。
+すみません、この電車は東京駅に止まりますか。
+週末は友だちと映画を見に行くつもりです。
+日本語の勉強は大変ですが、とても楽しいです。
+ok sbv2-F2
 おはようございます。今日はいい天気ですね。
-fail jvnv-M1-jp RuntimeError Input type (c10::Half) and bias type (float) should be the same
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 385, in forward
-    return self._conv_forward(input, self.weight, self.bias)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 380, in _conv_forward
-    return F.conv1d(
-           ^^^^^^^^^
-RuntimeError: Input type (c10::Half) and bias type (float) should be the same
-
+  WeightNorm.apply(module, name, dim)
+駅の前に、新しいパン屋ができました。
+すみません、この電車は東京駅に止まりますか。
+週末は友だちと映画を見に行くつもりです。
+日本語の勉強は大変ですが、とても楽しいです。
+ok sbv2-M1
 おはようございます。今日はいい天気ですね。
-fail jvnv-M2-jp RuntimeError Input type (c10::Half) and bias type (float) should be the same
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 385, in forward
-    return self._conv_forward(input, self.weight, self.bias)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 380, in _conv_forward
-    return F.conv1d(
-           ^^^^^^^^^
-RuntimeError: Input type (c10::Half) and bias type (float) should be the same
-
+  WeightNorm.apply(module, name, dim)
+駅の前に、新しいパン屋ができました。
+すみません、この電車は東京駅に止まりますか。
+週末は友だちと映画を見に行くつもりです。
+日本語の勉強は大変ですが、とても楽しいです。
+ok sbv2-M2
