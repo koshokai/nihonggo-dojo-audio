@@ -1,3 +1,10 @@
+Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 5006.69it/s]
+おはようございます。今日はいい天気ですね。
+  WeightNorm.apply(module, name, dim)
+fail jvnv-F1-jp ValueError numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
+    labels = pyopenjtalk.make_label(pyopenjtalk.run_frontend(text))
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/style_bert_vits2/nlp/japanese/pyopenjtalk_worker/__init__.py", line 27, in run_frontend
     import pyopenjtalk
   File "/opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/pyopenjtalk/__init__.py", line 20, in <module>
     from .htsengine import HTSEngine
