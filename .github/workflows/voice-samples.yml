@@ -30,8 +30,8 @@ jobs:
         timeout-minutes: 35
         run: |
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -q style-bert-vits2 soundfile huggingface_hub
-          python3 tools/voice_samples.py sbv2
+          pip install -q style-bert-vits2 soundfile huggingface_hub 2>&1 | tail -5 | tee samples/sbv2-pip.log
+          python3 tools/voice_samples.py sbv2 2>&1 | tail -40 | tee samples/sbv2.log
       - name: Page
         run: python3 tools/voice_samples.py page
       - name: Commit
