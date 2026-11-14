@@ -38,11 +38,6 @@ jobs:
     concurrency:
       group: member-audio-ja
       cancel-in-progress: false
-    services:
-      voicevox:
-        image: voicevox/voicevox_engine:cpu-latest
-        ports:
-          - 50021:50021
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,8 +53,11 @@ jobs:
           sparse-checkout: |
             ja/*.json
           sparse-checkout-cone-mode: false
+      # 合成引擎自己启动，关掉它的日志：作为 service 容器时，任务结束会把引擎的访问日志（URL 里带句子）打印到公开日志里
       - name: Tools
-        run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+        run: |
+          docker run -d --name voicevox --log-driver none -p 50021:50021 voicevox/voicevox_engine:cpu-latest > /dev/null
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
       - name: Generate & upload
         working-directory: src
         env:
@@ -94,11 +92,6 @@ jobs:
       fail-fast: false
       matrix:
         shard: ['0', '1', '2', '3', '4', '5', '6', '7']
-    services:
-      voicevox:
-        image: voicevox/voicevox_engine:cpu-latest
-        ports:
-          - 50021:50021
     steps:
       - uses: actions/checkout@v4
         with:
@@ -114,8 +107,11 @@ jobs:
           sparse-checkout: |
             ja/*.json
           sparse-checkout-cone-mode: false
+      # 合成引擎自己启动，关掉它的日志：作为 service 容器时，任务结束会把引擎的访问日志（URL 里带句子）打印到公开日志里
       - name: Tools
-        run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+        run: |
+          docker run -d --name voicevox --log-driver none -p 50021:50021 voicevox/voicevox_engine:cpu-latest > /dev/null
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
       - name: Generate & upload
         working-directory: src
         env:
