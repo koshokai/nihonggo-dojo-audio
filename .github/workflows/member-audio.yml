@@ -2,14 +2,14 @@
 # 脚本和文字从私有仓库 koshokai/nihonggo-dojo 取（MAIN_REPO_TOKEN，只读）；会员内容从服务器（Supabase）读，录音上传到 Supabase 的私有存储。
 # 本仓库里不留任何会员内容；日志是公开的，所以脚本用 PUBLIC_LOG 只输出进度数字，不输出句子。
 # 需要的 Secret：MAIN_REPO_TOKEN（已有）、SUPABASE_SERVICE_ROLE_KEY（Settings → Secrets and variables → Actions 里添加）。
-# 在 Actions 页面手动运行。mode 可以写几个，用空格分开。已经生成过的会跳过，可以反复运行。
+# 在 Actions 页面手动运行。mode 可以写几个，用空格分开。已经生成过的会跳过，可以反复运行；换了声音（主仓库 gen_audio.py 和本仓库 ja/voice.json）会重新生成。
 name: Member audio
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: ja-course / ja-listen / ja-biz / ja-read / anime-daily / zh / en（可以写几个，空格分开）
+        description: ja-course / ja-listen / ja-biz / ja-read / ja-ex / anime-daily / zh / en（可以写几个，空格分开）
         required: true
         default: 'zh en'
       ref:
@@ -30,8 +30,9 @@ env:
     for l in sys.stdin: print(l.rstrip() if l.isascii() and "'" not in l and '"' not in l else '  (detail hidden)', flush=True)
 
 jobs:
+  # 日语：课程、听力、动漫每日一课在一台机器上跑（课程整段合成要全部句子）
   ja:
-    if: ${{ contains(inputs.mode, 'ja-') || contains(inputs.mode, 'anime-daily') }}
+    if: ${{ contains(inputs.mode, 'ja-course') || contains(inputs.mode, 'ja-listen') || contains(inputs.mode, 'anime-daily') }}
     runs-on: ubuntu-latest
     timeout-minutes: 350
     concurrency:
@@ -49,14 +50,13 @@ jobs:
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
+          sparse-checkout: tools
+      # 网站上已经有的录音（跳过不重复生成）和当前声音：读本仓库 ja/ 下的索引
+      - uses: actions/checkout@v4
+        with:
+          path: pub
           sparse-checkout: |
-            tools
-            audio/index-course.json
-            audio/index-listen.json
-            audio/index-biz.json
-            audio/index-reading.json
-            audio/index-words.json
-            audio/voice.json
+            ja/*.json
           sparse-checkout-cone-mode: false
       - name: Tools
         run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
@@ -64,10 +64,118 @@ jobs:
         working-directory: src
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JA_AUDIO_DIR: ${{ github.workspace }}/pub/ja
+          JA_SHARD: ${{ matrix.shard && format('{0}/8', matrix.shard) || '0/1' }}
+          PARTIAL_DIR: ${{ github.workspace }}/partial
+          WHICH: ${{ matrix.shard && 'shard' || 'solo' }}
         shell: bash -o pipefail {0}
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
-          for M in $MODES; do case "$M" in ja-*|anime-daily) python3 tools/gen_member_audio.py $M 2>&1 | python3 -u -c "$REDACT";; esac; done
+          for M in $MODES; do
+            case "$WHICH:$M" in
+              solo:ja-course|solo:ja-listen|solo:anime-daily|shard:ja-biz|shard:ja-read|shard:ja-ex|shard:ja-grammar)
+                python3 tools/gen_member_audio.py $M 2>&1 | python3 -u -c "$REDACT";;
+            esac
+          done
+      - if: ${{ matrix.shard != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-${{ matrix.shard }}
+          path: partial
+          if-no-files-found: ignore
+          retention-days: 3
+
+  # 日语：阅读、商务、例句（数量多）分 8 台同时生成，最后合并索引
+  ja-shard:
+    if: ${{ contains(inputs.mode, 'ja-biz') || contains(inputs.mode, 'ja-read') || contains(inputs.mode, 'ja-ex') || contains(inputs.mode, 'ja-grammar') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['0', '1', '2', '3', '4', '5', '6', '7']
+    services:
+      voicevox:
+        image: voicevox/voicevox_engine:cpu-latest
+        ports:
+          - 50021:50021
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: tools
+      # 网站上已经有的录音（跳过不重复生成）和当前声音：读本仓库 ja/ 下的索引
+      - uses: actions/checkout@v4
+        with:
+          path: pub
+          sparse-checkout: |
+            ja/*.json
+          sparse-checkout-cone-mode: false
+      - name: Tools
+        run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+      - name: Generate & upload
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JA_AUDIO_DIR: ${{ github.workspace }}/pub/ja
+          JA_SHARD: ${{ matrix.shard && format('{0}/8', matrix.shard) || '0/1' }}
+          PARTIAL_DIR: ${{ github.workspace }}/partial
+          WHICH: ${{ matrix.shard && 'shard' || 'solo' }}
+        shell: bash -o pipefail {0}
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
+          for M in $MODES; do
+            case "$WHICH:$M" in
+              solo:ja-course|solo:ja-listen|solo:anime-daily|shard:ja-biz|shard:ja-read|shard:ja-ex|shard:ja-grammar)
+                python3 tools/gen_member_audio.py $M 2>&1 | python3 -u -c "$REDACT";;
+            esac
+          done
+      - if: ${{ matrix.shard != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-${{ matrix.shard }}
+          path: partial
+          if-no-files-found: ignore
+          retention-days: 3
+
+  ja-merge:
+    needs: ja-shard
+    if: ${{ always() && needs.ja-shard.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: member-audio-ja-merge
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: tools
+      - uses: actions/checkout@v4
+        with:
+          path: pub
+          sparse-checkout: |
+            ja/*.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: partial-*
+          path: partial
+      - name: Merge indexes
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JA_AUDIO_DIR: ${{ github.workspace }}/pub/ja
+          MEMBER_MERGE: ${{ github.workspace }}/partial
+        shell: bash -o pipefail {0}
+        run: |
+          ls "$MEMBER_MERGE"
+          for M in $MODES; do case "$M" in ja-biz|ja-read|ja-ex|ja-grammar) python3 tools/gen_member_audio.py $M 2>&1 | python3 -u -c "$REDACT";; esac; done
 
   zh:
     if: ${{ contains(format(' {0} ', inputs.mode), ' zh ') }}
