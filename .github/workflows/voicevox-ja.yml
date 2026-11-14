@@ -1,0 +1,115 @@
+# 日语发音：VOICEVOX。放在公开的音频仓库里跑（Actions 不限分钟），录音也放在这里，网站从
+# https://koshokai.github.io/nihonggo-dojo-audio/ja/ 读取。
+# 脚本和文字从 koshokai/nihonggo-dojo 取（私有，用 Secret 里的 MAIN_REPO_TOKEN 只读）。分 8 片并行，最后合并到 ja/ 一起提交。
+# 声音：主声音 VOICEVOX:春日部つむぎ（8），对话里的男性角色 VOICEVOX:剣崎雌雄（21），见 tools/gen_audio.py。
+# 日志里不会打印句子（gen_audio.py 只打印数量和失败的 key；失败的 key 也只出现在这个公开内容的录音里）。
+name: VOICEVOX Japanese audio
+
+on:
+  workflow_dispatch:
+    inputs:
+      speaker:
+        description: 主声音的 VOICEVOX style id（8 = 春日部つむぎ）
+        required: false
+        default: '8'
+      ref:
+        description: 从 nihonggo-dojo 的哪个分支取文字和脚本
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+concurrency:
+  group: voicevox-ja
+  cancel-in-progress: false
+
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    services:
+      voicevox:
+        image: voicevox/voicevox_engine:cpu-latest
+        ports:
+          - 50021:50021
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            /*
+            !/audio/
+            !/photos/
+            !/app/
+          sparse-checkout-cone-mode: false
+      - name: Tools
+        run: which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+      - name: Generate
+        run: |
+          for i in $(seq 60); do curl -sf http://127.0.0.1:50021/version >/dev/null && break; sleep 3; done
+          JA_AUDIO_DIR=$GITHUB_WORKSPACE/out JA_SHARD=${{ matrix.shard }}/8 python3 src/tools/gen_audio.py all --speaker ${{ inputs.speaker }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ja-${{ matrix.shard }}
+          path: out
+          retention-days: 2
+
+  commit:
+    needs: gen
+    if: always() && needs.gen.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            audio/ja-h
+            audio/index-ja-human.json
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/art
+      - name: Merge and commit
+        run: |
+          set -e
+          n=$(ls -d /tmp/art/ja-* | wc -l); echo "shards: $n"
+          [ "$n" -eq 8 ] || { echo "有分片失败，先不替换现有的 ja/"; exit 1; }
+          rm -rf site/ja && mkdir -p site/ja
+          python3 - <<'PY'
+          import json, glob, os, shutil
+          out = 'site/ja'; idx = {}
+          for d in sorted(glob.glob('/tmp/art/ja-*')):
+              for root, _, files in os.walk(d):
+                  for f in files:
+                      src = os.path.join(root, f); rel = os.path.relpath(src, d)
+                      if f.startswith('index-') and f.endswith('.json'):
+                          idx.setdefault(f, {}).update(json.load(open(src, encoding='utf-8')))
+                      else:
+                          os.makedirs(os.path.dirname(os.path.join(out, rel)) or out, exist_ok=True)
+                          shutil.copy(src, os.path.join(out, rel))
+          for f, d in idx.items():
+              json.dump(d, open(os.path.join(out, f), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+              print(f, len(d))
+          PY
+          cp -r src/audio/ja-h site/ja/ja-h
+          cp src/audio/index-ja-human.json site/ja/
+          cd site
+          git config user.name "voicevox-bot"
+          git config user.email "voicevox-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -qm "audio: Japanese voices (VOICEVOX 春日部つむぎ / 剣崎雌雄)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs origin main && git push -q origin HEAD:main && break; sleep 5; done
