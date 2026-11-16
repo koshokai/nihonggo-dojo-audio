@@ -1,6 +1,6 @@
 # 日语发音：VOICEVOX。放在公开的音频仓库里跑（Actions 不限分钟），录音也放在这里，网站从
 # https://koshokai.github.io/nihonggo-dojo-audio/ja/ 读取。
-# 脚本和文字从 koshokai/nihonggo-dojo 取（私有，用 Secret 里的 MAIN_REPO_TOKEN 只读）。分 8 片并行，最后合并到 ja/ 一起提交。
+# 脚本和文字从 koshokai/nihonggo-dojo-dev 取（私有，用 Secret 里的 MAIN_REPO_TOKEN 只读）。分 8 片并行，最后合并到 ja/ 一起提交。
 # 声音：主声音 VOICEVOX:春日部つむぎ（8），对话里的男性角色 VOICEVOX:剣崎雌雄（21），见 tools/gen_audio.py。
 # 日志里不会打印句子（gen_audio.py 只打印数量和失败的 key；失败的 key 也只出现在这个公开内容的录音里）。
 name: VOICEVOX Japanese audio
@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
@@ -72,7 +72,7 @@ jobs:
           path: site
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src

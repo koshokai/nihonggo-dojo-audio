@@ -1,5 +1,5 @@
 # 会员录音（日语 VOICEVOX、中文 MeloTTS、英语 Kokoro）：在这个公开仓库里跑，不占私有主仓库的 GitHub Actions 免费额度。
-# 脚本和文字从私有仓库 koshokai/nihonggo-dojo 取（MAIN_REPO_TOKEN，只读）；会员内容从服务器（Supabase）读，录音上传到 Supabase 的私有存储。
+# 脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）；会员内容从服务器（Supabase）读，录音上传到 Supabase 的私有存储。
 # 本仓库里不留任何会员内容；日志是公开的，所以脚本用 PUBLIC_LOG 只输出进度数字，不输出句子。
 # 需要的 Secret：MAIN_REPO_TOKEN（已有）、SUPABASE_SERVICE_ROLE_KEY（Settings → Secrets and variables → Actions 里添加）。
 # 在 Actions 页面手动运行。mode 可以写几个，用空格分开。已经生成过的会跳过，可以反复运行；换了声音（主仓库 gen_audio.py 和本仓库 ja/voice.json）会重新生成。
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
@@ -95,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
@@ -147,7 +147,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
@@ -183,7 +183,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
@@ -222,7 +222,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: koshokai/nihonggo-dojo
+          repository: koshokai/nihonggo-dojo-dev
           token: ${{ secrets.MAIN_REPO_TOKEN }}
           ref: ${{ inputs.ref }}
           path: src
