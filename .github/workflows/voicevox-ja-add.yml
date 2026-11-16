@@ -1,0 +1,80 @@
+# 日语：只给新加的内容补录音（VOICEVOX:春日部つむぎ），不重新生成已有的。新文章、新例句、新商务内容上线前跑一次。
+# 脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）。只处理网站上公开的内容（会员内容走 member-audio.yml）。
+# 先把现有的索引放进输出目录，gen_audio.py 会跳过已有的 key，只生成新的；最后把新文件和更新后的索引放进 ja/ 提交。
+# 引擎用 docker 启动并关掉日志（service 容器结束时会把带文字的访问日志打印出来）。
+name: VOICEVOX Japanese audio - add new
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: reading（阅读、每周精选、水平测试）/ biz（商务）/ daily（今日一句）/ words（单词，level 填级别）/ examples（例句，level 填 N5,N4）
+        required: true
+        default: reading
+      level:
+        description: words / examples 时的级别
+        required: false
+        default: ''
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取文字和脚本
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+concurrency:
+  group: voicevox-ja
+  cancel-in-progress: false
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          filter: blob:none
+          sparse-checkout: |
+            /ja/index-*.json
+            /ja/voice.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            /*
+            !/audio/
+            !/photos/
+            !/app/
+          sparse-checkout-cone-mode: false
+      - name: Engine and tools
+        run: |
+          docker run -d --name voicevox --log-driver none -p 50021:50021 voicevox/voicevox_engine:cpu-latest > /dev/null
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+      - name: Generate (only keys that are not in the index yet)
+        run: |
+          mkdir -p out && cp site/ja/index-*.json out/ && cp site/ja/voice.json out/ 2>/dev/null || true
+          for i in $(seq 100); do curl -sf http://127.0.0.1:50021/version >/dev/null && break; sleep 3; done
+          ARGS="${{ inputs.mode }}"
+          [ -n "${{ inputs.level }}" ] && ARGS="$ARGS --level ${{ inputs.level }}"
+          JA_AUDIO_DIR=$GITHUB_WORKSPACE/out python3 src/tools/gen_audio.py $ARGS
+      - name: Commit new files
+        run: |
+          set -e
+          # out/ 里只有这次新生成的录音（一开始只放了索引）
+          ( cd out && find . -name '*.mp3' -print ) | while read f; do mkdir -p "site/ja/$(dirname "$f")"; cp "out/$f" "site/ja/$f"; done
+          cp out/index-*.json site/ja/
+          cd site
+          git config user.name "voicevox-bot"
+          git config user.email "voicevox-bot@users.noreply.github.com"
+          git add --sparse ja
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          echo "new files: $(git diff --cached --name-only | grep -c '\.mp3$' || true)"
+          git commit -qm "audio: Japanese ${{ inputs.mode }} - new items (VOICEVOX:春日部つむぎ)"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
