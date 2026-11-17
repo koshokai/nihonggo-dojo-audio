@@ -1,0 +1,95 @@
+# 中文：给新加的免费内容补录音（MeloTTS），放在本仓库 zh2/ 和 index-zh2.json（网站 lang.js 会并进中文录音目录）。
+# 主站原来的中文录音（koshokai/nihonggo-dojo 的 audio/zh/）不动；已经有录音的不重复生成。
+# 脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）。新录音统一音量，句中过长的停顿缩短。
+name: MeloTTS Chinese audio - add new
+
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: daily（读物、听力、今日一句、课程、语法例句、商务）/ basic（拼音表、HSK1–3 单词例句）/ levels（HSK4–6）
+        required: true
+        default: daily
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+concurrency:
+  group: melotts-zh
+  cancel-in-progress: false
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh2.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+            audio/index-zh.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install MeloTTS
+        timeout-minutes: 20
+        run: |
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          git clone -q --depth 1 https://github.com/myshell-ai/MeloTTS /tmp/MeloTTS
+          pip install -q -e /tmp/MeloTTS numpy
+          python -m unidic download
+          python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)"
+      - name: Generate (only texts without a recording)
+        env:
+          MELO_OUT: ${{ github.workspace }}/out
+          MELO_PREFIX: zh2
+        run: |
+          mkdir -p out
+          python3 - <<'PY'
+          import json, os
+          a = json.load(open('src/audio/index-zh.json'))
+          b = json.load(open('site/index-zh2.json')) if os.path.exists('site/index-zh2.json') else {}
+          json.dump({**a, **b}, open('out/index-zh.json', 'w'), ensure_ascii=False)
+          PY
+          python3 src/tools/gen_audio_melo.py zh ${{ inputs.which }}
+      - name: Smooth new files and commit
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json, os
+          main = json.load(open('src/audio/index-zh.json'))
+          out = json.load(open('out/index-zh.json'))
+          old = json.load(open('site/index-zh2.json')) if os.path.exists('site/index-zh2.json') else {}
+          new = {k: v for k, v in out.items() if k not in main and k not in old}
+          json.dump(sorted(set(new.values())), open('new.json', 'w'))
+          old.update(new)
+          json.dump(old, open('site/index-zh2.json', 'w'), ensure_ascii=False, separators=(',', ':'))
+          print('new recordings:', len(new))
+          PY
+          python3 src/tools/tighten_audio.py out new.json
+          mkdir -p site/zh2 && cp out/zh2/*.mp3 site/zh2/ 2>/dev/null || true
+          cd site
+          git config user.name "melotts-bot"
+          git config user.email "melotts-bot@users.noreply.github.com"
+          git add --sparse -A index-zh2.json zh2
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -qm "audio: Chinese ${{ inputs.which }} - new items (MeloTTS)"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
