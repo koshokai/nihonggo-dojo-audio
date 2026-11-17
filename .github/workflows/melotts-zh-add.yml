@@ -1,5 +1,6 @@
-# 中文：给新加的免费内容补录音（MeloTTS），放在本仓库 zh2/ 和 index-zh2.json（网站 lang.js 会并进中文录音目录）。
-# 主站原来的中文录音（koshokai/nihonggo-dojo 的 audio/zh/）不动；已经有录音的不重复生成。
+# 中文：给免费内容补录音（MeloTTS），放在本仓库 zh2/ 和 index-zh2.json（网站 lang.js 会并进中文录音目录，本仓库的优先）。
+# 一律按网页显示的拼音读（tools/zh/audio_py.json，多音字纠正）；index-zh-py.json 记下每条录音用的拼音，拼音改了的重新生成。
+# 主站原来的中文录音（koshokai/nihonggo-dojo 的 audio/zh/）不动：重录的放这里，覆盖主站的。
 # 脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）。新录音统一音量，句中过长的停顿缩短。
 name: MeloTTS Chinese audio - add new
 
@@ -7,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       which:
-        description: daily（读物、听力、今日一句、课程、语法例句、商务）/ basic（拼音表、HSK1–3 单词例句）/ levels（HSK4–6）
+        description: all（全部）/ daily（读物、听力、今日一句、课程、语法例句、商务）/ basic（拼音表、HSK1–3 单词例句）/ levels（HSK4–6）
         required: true
-        default: daily
+        default: all
       ref:
         description: 从 nihonggo-dojo-dev 的哪个分支取
         required: false
@@ -32,6 +33,7 @@ jobs:
           path: site
           sparse-checkout: |
             /index-zh2.json
+            /index-zh-py.json
           sparse-checkout-cone-mode: false
       - uses: actions/checkout@v4
         with:
@@ -67,6 +69,8 @@ jobs:
           a = json.load(open('src/audio/index-zh.json'))
           b = json.load(open('site/index-zh2.json')) if os.path.exists('site/index-zh2.json') else {}
           json.dump({**a, **b}, open('out/index-zh.json', 'w'), ensure_ascii=False)
+          if os.path.exists('site/index-zh-py.json'):
+              json.dump(json.load(open('site/index-zh-py.json')), open('out/index-zh-py.json', 'w'), ensure_ascii=False)
           PY
           python3 src/tools/gen_audio_melo.py zh ${{ inputs.which }}
       - name: Smooth new files and commit
@@ -77,18 +81,20 @@ jobs:
           main = json.load(open('src/audio/index-zh.json'))
           out = json.load(open('out/index-zh.json'))
           old = json.load(open('site/index-zh2.json')) if os.path.exists('site/index-zh2.json') else {}
-          new = {k: v for k, v in out.items() if k not in main and k not in old}
+          new = {k: v for k, v in out.items() if main.get(k) != v and old.get(k) != v}   # 新录的和重录的
           json.dump(sorted(set(new.values())), open('new.json', 'w'))
           old.update(new)
           json.dump(old, open('site/index-zh2.json', 'w'), ensure_ascii=False, separators=(',', ':'))
           print('new recordings:', len(new))
+          if os.path.exists('out/index-zh-py.json'):
+              json.dump(json.load(open('out/index-zh-py.json')), open('site/index-zh-py.json', 'w'), ensure_ascii=False, separators=(',', ':'))
           PY
           python3 src/tools/tighten_audio.py out new.json
           mkdir -p site/zh2 && cp out/zh2/*.mp3 site/zh2/ 2>/dev/null || true
           cd site
           git config user.name "melotts-bot"
           git config user.email "melotts-bot@users.noreply.github.com"
-          git add --sparse -A index-zh2.json zh2
+          git add --sparse -A index-zh2.json index-zh-py.json zh2
           git diff --cached --quiet && { echo "nothing new"; exit 0; }
           git commit -qm "audio: Chinese ${{ inputs.which }} - new items (MeloTTS)"
           for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
