@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       which:
-        description: all（全部）/ daily（读物、听力、今日一句、课程、语法例句、商务）/ basic（拼音表、HSK1–3 单词例句）/ levels（HSK4–6）
+        description: all（全部）/ retake（听写检查 asr-zh.json 分数低的重新生成，选识别分数最高的）/ daily（读物、听力、今日一句、课程、语法例句、商务）/ basic（拼音表、HSK1–3 单词例句）/ levels（HSK4–6）
         required: true
         default: all
       ref:
@@ -34,6 +34,7 @@ jobs:
           sparse-checkout: |
             /index-zh2.json
             /index-zh-py.json
+            /asr-zh.json
           sparse-checkout-cone-mode: false
       - uses: actions/checkout@v4
         with:
@@ -56,6 +57,7 @@ jobs:
           pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           git clone -q --depth 1 https://github.com/myshell-ai/MeloTTS /tmp/MeloTTS
           pip install -q -e /tmp/MeloTTS numpy
+          [ "${{ inputs.which }}" = retake ] && pip install -q faster-whisper cn2an || true
           python -m unidic download
           python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)"
       - name: Generate (only texts without a recording)
@@ -71,6 +73,8 @@ jobs:
           json.dump({**a, **b}, open('out/index-zh.json', 'w'), ensure_ascii=False)
           if os.path.exists('site/index-zh-py.json'):
               json.dump(json.load(open('site/index-zh-py.json')), open('out/index-zh-py.json', 'w'), ensure_ascii=False)
+          if os.path.exists('site/asr-zh.json'):
+              json.dump(json.load(open('site/asr-zh.json')), open('out/asr-zh.json', 'w'), ensure_ascii=False)
           PY
           python3 src/tools/gen_audio_melo.py zh ${{ inputs.which }}
       - name: Smooth new files and commit

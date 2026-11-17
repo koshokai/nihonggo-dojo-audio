@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: ja-course / ja-listen / ja-biz / ja-read / ja-ex / anime-daily / zh / zh-voices / en（可以写几个，空格分开）
+        description: ja-course / ja-listen / ja-biz / ja-read / ja-ex / anime-daily / zh / zh-voices / zh-check（中文听写检查，8 台）/ en（可以写几个，空格分开）
         required: true
         default: 'zh en'
       ref:
@@ -211,6 +211,69 @@ jobs:
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
           python3 tools/gen_member_audio.py zh 2>&1 | python3 -u -c "$REDACT"
+
+  # 中文会员录音的听写检查（语音识别）：8 台同时听，分数低的重新生成（选识别分数最高的一条），最后合并进索引
+  zh-check:
+    if: ${{ contains(inputs.mode, 'zh-check') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['0', '1', '2', '3', '4', '5', '6', '7']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install MeloTTS + faster-whisper
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq ffmpeg
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          git clone -q --depth 1 https://github.com/myshell-ai/MeloTTS /tmp/MeloTTS
+          pip install -q -e /tmp/MeloTTS faster-whisper cn2an
+          python -m unidic download
+          python -c "import nltk; nltk.download('averaged_perceptron_tagger_eng', quiet=True); nltk.download('cmudict', quiet=True)"
+      - name: Check & re-record
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZH_SHARD: ${{ matrix.shard }}/8
+        shell: bash -o pipefail {0}
+        run: python3 tools/gen_member_audio.py zh-check 2>&1 | python3 -u -c "$REDACT"
+
+  zh-check-merge:
+    needs: zh-check
+    if: ${{ always() && contains(inputs.mode, 'zh-check') }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: member-audio-zh
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+          sparse-checkout-cone-mode: false
+      - name: Merge
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash -o pipefail {0}
+        run: pip install -q requests >/dev/null; python3 tools/gen_member_audio.py zh-check-merge 2>&1 | python3 -u -c "$REDACT"
 
   zh-voices:
     # 中文会员听力里男声、第二个女声的台词（Kokoro 普通话声音，和 zh-voices.yml 生成的网站录音同样）
