@@ -1,0 +1,33 @@
+# 把会员完整版（私有仓库 koshokai/nihonggo-dojo-content 的 dist/）上传到 Supabase。
+# 私有仓库的 GitHub Actions 免费额度用完时在这里跑：用 MAIN_REPO_TOKEN 读私有仓库，内容只在运行的机器上，不会存进这个公开仓库；
+# 日志只打印文件名和大小。需要的 Secret：MAIN_REPO_TOKEN（要能读 nihonggo-dojo-content）、SUPABASE_SERVICE_ROLE_KEY。
+name: Import member content
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: import-member
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-content
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          path: content
+      - name: Upload
+        working-directory: content
+        env:
+          SUPABASE_URL: https://tpwljbzjixdggqjsgltf.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
+          python3 tools/import_member.py 2>&1 | python3 -u -c "import sys
+          for l in sys.stdin: print(l.rstrip() if l.isascii() or l.startswith(('上传', '删除旧文件', '完成', '每日内容')) else '  (detail hidden)', flush=True)"
