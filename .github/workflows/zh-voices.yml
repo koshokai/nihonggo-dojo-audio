@@ -1,0 +1,78 @@
+# 中文听力对话的男声（M、M2）和第二个女声（F2）：Kokoro-82M（Apache 2.0）的普通话声音，提交到本仓库的 zh-v/ 和 index-zh-voices.json。
+# 网站 zh.js 从 https://koshokai.github.io/nihonggo-dojo-audio/index-zh-voices.json 按「说话人|原文」找录音。第一个女声和旁白还是 MeloTTS。
+# 脚本和听力题（公开内容）从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）。已经生成过的跳过；日志只打印数量。
+# 会员听力题的同样的声音：member-audio.yml 的 zh-voices。
+name: Chinese listening voices (Kokoro)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 最多生成多少句（0 = 全部；试跑时填 5）
+        required: false
+        default: '0'
+      force:
+        description: 全部重新生成
+        type: boolean
+        default: false
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取脚本和听力题
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zh-voices
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh-voices.json
+            /zh-v/
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang/zh-listen.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kokoro（普通话：misaki[zh]）
+        timeout-minutes: 20
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" "misaki[zh]" soundfile numpy
+      - name: Generate
+        shell: bash -o pipefail {0}
+        env:
+          KOKORO_FORCE: ${{ inputs.force && '1' || '' }}
+          ZH_VOICES_DIR: ${{ github.workspace }}/site
+        run: python3 src/tools/gen_audio_zh_voices.py listen --limit "${{ inputs.limit || '0' }}" 2>&1 | LC_ALL=C sed -e 's/.*[^ -~].*/  (detail hidden)/'
+      - name: Commit
+        if: always()
+        working-directory: site
+        run: |
+          git config user.name "kokoro-bot"
+          git config user.email "kokoro-bot@users.noreply.github.com"
+          git add --sparse -A index-zh-voices.json zh-v 2>/dev/null || git add -A
+          git diff --cached --quiet && exit 0
+          echo "files: $(git diff --cached --name-only | wc -l)"
+          git commit -qm "audio: Chinese listening voices (Kokoro)"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
