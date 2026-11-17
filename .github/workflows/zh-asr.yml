@@ -1,0 +1,130 @@
+# 中文录音的听写检查：用语音识别（faster-whisper small）把网站上每条免费中文录音（MeloTTS 句子和单词、听力男声 Kokoro）听一遍，
+# 和原文（不带声调的拼音）比，找出读漏、读错字、中途断掉、没声音的。结果写进本仓库 asr-zh.json（只有免费内容；日志只打印数量）。
+# 脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）；主站原来的录音从 koshokai/nihonggo-dojo 取。
+name: Chinese audio check (speech recognition)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取脚本和文字
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zh-asr
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['0', '1', '2', '3', '4', '5', '6', '7']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh2.json
+            /index-zh-voices.json
+            /zh2/
+            /zh-v/
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          path: pub
+          sparse-checkout: |
+            /audio/zh/
+            /audio/index-zh.json
+            /audio/index-zh-human.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+          pip install -q faster-whisper pypinyin cn2an
+      - name: Check
+        run: |
+          mkdir -p root out
+          ln -s "$PWD/site/zh2" root/zh2; ln -s "$PWD/site/zh-v" root/zh-v; ln -s "$PWD/pub/audio/zh" root/zh
+          python3 - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, 'src/tools')
+          import gen_audio_melo as M
+          L = lambda p: json.load(open(p)) if os.path.exists(p) else {}
+          main, z2, human, vo = L('pub/audio/index-zh.json'), L('site/index-zh2.json'), L('pub/audio/index-zh-human.json'), L('site/index-zh-voices.json')
+          M.ROOT = __import__('pathlib').Path('src')
+          jobs, nofile = [], []
+          for t in dict.fromkeys(M.items_zh('basic') + M.items_zh('levels') + M.items_zh('daily')):
+              if t in human:
+                  continue
+              f = z2.get(t) or main.get(t)
+              (jobs.append([t, t, f]) if f else nofile.append(t))
+          for x in json.load(open('src/lang/zh-listen.json')):
+              for ln in x['lines']:
+                  if ln[0] not in ('F', 'N'):
+                      k = f'{ln[0]}|{ln[1]}'
+                      (jobs.append([k, ln[1], vo[k]]) if k in vo else nofile.append(k))
+          jobs = list({j[0]: j for j in jobs}.values())
+          json.dump(jobs, open('jobs.json', 'w'), ensure_ascii=False)
+          json.dump(sorted(set(nofile)), open('out/nofile.json', 'w'), ensure_ascii=False)
+          print('recordings to check:', len(jobs), 'texts without a recording:', len(set(nofile)))
+          PY
+          python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asr-${{ matrix.shard }}
+          path: out
+          retention-days: 3
+
+  report:
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /README.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+      - name: Merge and commit
+        run: |
+          python3 - <<'PY'
+          import json, glob
+          res = {}
+          for f in glob.glob('parts/*/part-*.json'):
+              res.update(json.load(open(f)))
+          nofile = json.load(open(glob.glob('parts/*/nofile.json')[0])) if glob.glob('parts/*/nofile.json') else []
+          low = {k: v for k, v in res.items() if v[0] < 0.8}
+          json.dump({'checked': len(res), 'no_recording': nofile, 'low': dict(sorted(low.items(), key=lambda kv: kv[1][0]))},
+                    open('asr-zh.json', 'w'), ensure_ascii=False, indent=0)
+          print('checked', len(res), 'low', len(low), 'no recording', len(nofile))
+          PY
+          git config user.name "asr-bot"
+          git config user.email "asr-bot@users.noreply.github.com"
+          git add --sparse asr-zh.json
+          git commit -qm "audio check: Chinese (speech recognition)" || exit 0
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
