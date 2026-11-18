@@ -1,0 +1,16 @@
+# 查 Wikimedia Commons 上有没有普通话拼音音节的真人录音（只读公开信息，打印找到的数量和授权）
+name: Commons probe (Mandarin syllables)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /tools/commons_probe.py
+          sparse-checkout-cone-mode: false
+      - run: python3 tools/commons_probe.py
