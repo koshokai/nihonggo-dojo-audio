@@ -14,6 +14,10 @@ on:
         description: 每台最多检查多少条（0 = 全部；试跑填 20）
         required: false
         default: '0'
+      sample:
+        description: 校准：只抽样（单字、词、句子各 160 条，加上真人录音 160 条），看识别本身准不准
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -46,6 +50,7 @@ jobs:
           path: pub
           sparse-checkout: |
             /audio/zh/
+            /audio/zh-h/
             /audio/index-zh.json
             /audio/index-zh-human.json
           sparse-checkout-cone-mode: false
@@ -70,7 +75,7 @@ jobs:
       - name: Check
         run: |
           mkdir -p root out
-          ln -s "$PWD/site/zh2" root/zh2; ln -s "$PWD/site/zh-v" root/zh-v; ln -s "$PWD/pub/audio/zh" root/zh
+          ln -s "$PWD/site/zh2" root/zh2; ln -s "$PWD/site/zh-v" root/zh-v; ln -s "$PWD/pub/audio/zh" root/zh; ln -s "$PWD/pub/audio/zh-h" root/zh-h
           python3 - <<'PY'
           import json, os, sys
           sys.path.insert(0, 'src/tools')
@@ -90,6 +95,14 @@ jobs:
                       k = f'{ln[0]}|{ln[1]}'
                       (jobs.append([k, ln[1], vo[k]]) if k in vo else nofile.append(k))
           jobs = list({j[0]: j for j in jobs}.values())
+          if '${{ inputs.sample }}' == 'true':
+              import random, re
+              random.seed(7)
+              han = lambda t: len(re.findall(r'[一-鿿]', t.split('|')[-1]))
+              cat = {'1': [j for j in jobs if han(j[1]) == 1], '2': [j for j in jobs if han(j[1]) == 2], 's': [j for j in jobs if han(j[1]) >= 6]}
+              jobs = [['T' + c + ':' + j[0], j[1], j[2]] for c, v in cat.items() for j in random.sample(v, min(160, len(v)))]
+              hu = list(human.items())
+              jobs += [['H:' + t, t, f] for t, f in random.sample(hu, min(160, len(hu)))]
           json.dump(jobs, open('jobs.json', 'w'), ensure_ascii=False)
           json.dump(sorted(set(nofile)), open('out/nofile.json', 'w'), ensure_ascii=False)
           print('recordings to check:', len(jobs), 'texts without a recording:', len(set(nofile)))
