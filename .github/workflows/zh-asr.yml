@@ -41,8 +41,10 @@ jobs:
           sparse-checkout: |
             /index-zh2.json
             /index-zh-voices.json
+            /index-zh-syl.json
             /zh2/
             /zh-v/
+            /zh-s/
           sparse-checkout-cone-mode: false
       - uses: actions/checkout@v4
         with:
@@ -75,19 +77,20 @@ jobs:
       - name: Check
         run: |
           mkdir -p root out
-          ln -s "$PWD/site/zh2" root/zh2; ln -s "$PWD/site/zh-v" root/zh-v; ln -s "$PWD/pub/audio/zh" root/zh; ln -s "$PWD/pub/audio/zh-h" root/zh-h
+          ln -s "$PWD/site/zh2" root/zh2; ln -s "$PWD/site/zh-s" root/zh-s; ln -s "$PWD/site/zh-v" root/zh-v; ln -s "$PWD/pub/audio/zh" root/zh; ln -s "$PWD/pub/audio/zh-h" root/zh-h
           python3 - <<'PY'
           import json, os, sys
           sys.path.insert(0, 'src/tools')
           import gen_audio_melo as M
           L = lambda p: json.load(open(p)) if os.path.exists(p) else {}
           main, z2, human, vo = L('pub/audio/index-zh.json'), L('site/index-zh2.json'), L('pub/audio/index-zh-human.json'), L('site/index-zh-voices.json')
+          syl = L('site/index-zh-syl.json')   # 网页的优先顺序：真人 > 单字音节 > zh2 > 主站
           M.ROOT = __import__('pathlib').Path('src')
           jobs, nofile = [], []
           for t in dict.fromkeys(M.items_zh('basic') + M.items_zh('levels') + M.items_zh('daily')):
               if t in human:
                   continue
-              f = z2.get(t) or main.get(t)
+              f = syl.get(t) or z2.get(t) or main.get(t)
               (jobs.append([t, t, f]) if f else nofile.append(t))
           for x in json.load(open('src/lang/zh-listen.json')):
               for ln in x['lines']:
