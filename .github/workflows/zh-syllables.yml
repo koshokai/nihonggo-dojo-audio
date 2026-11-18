@@ -1,0 +1,61 @@
+# 中文单字的真人发音：Wikimedia Commons 上按拼音音节录的普通话真人录音（CC BY / CC BY-SA），语音识别确认读音对了才收录。
+# 写进本仓库 zh-s/、index-zh-syl.json（字 → 文件）、credits-zh-syl.json（作者和授权，网站的 credits 页面引用）。
+# 脚本和字表从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）。
+name: Chinese single characters (human syllable recordings)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh-syl.json
+            /credits-zh-syl.json
+            /zh-s/
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q funasr modelscope pypinyin cn2an
+      - name: Fetch and check
+        env:
+          SYL_OUT: ${{ github.workspace }}/site
+        run: cd src && python3 tools/fetch_zh_syllables.py
+      - name: Commit
+        run: |
+          cd site
+          git config user.name "zh-syllables-bot"
+          git config user.email "zh-syllables-bot@users.noreply.github.com"
+          git add --sparse -A index-zh-syl.json credits-zh-syl.json zh-s
+          git diff --cached --quiet && exit 0
+          git commit -qm "audio: Chinese single characters - human syllable recordings (Wikimedia Commons)"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
