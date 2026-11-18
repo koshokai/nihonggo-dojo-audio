@@ -94,9 +94,11 @@ jobs:
               (jobs.append([t, t, f]) if f else nofile.append(t))
           for x in json.load(open('src/lang/zh-listen.json')):
               for ln in x['lines']:
-                  if ln[0] not in ('F', 'N'):
-                      k = f'{ln[0]}|{ln[1]}'
-                      (jobs.append([k, ln[1], vo[k]]) if k in vo else nofile.append(k))
+                  k = f'{ln[0]}|{ln[1]}'
+                  if k in vo:   # 每个说话人都是 Kokoro 的录音（女声 F 也是）
+                      jobs.append([k, ln[1], vo[k]])
+                  elif ln[0] not in ('F', 'N'):
+                      nofile.append(k)
           jobs = list({j[0]: j for j in jobs}.values())
           if '${{ inputs.sample }}' == 'true':
               import random, re
