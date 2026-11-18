@@ -1,0 +1,129 @@
+# 中文单字、短词的录音：MeloTTS 读单字和两个字的词常常含糊。每个短词准备几条候选（原来的录音 + Kokoro 普通话女声，按网页显示的拼音读），
+# 用语音识别（FunASR Paraformer）逐条听，留下听得最清楚的一条，写进本仓库 zh2/ 和 index-zh2.json（网站优先播放）。
+# mode=test 只抽样打印各引擎的通过率。脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）。
+name: Chinese short words (pick the clearest recording)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: test（抽样看通过率）/ run（全部）
+        required: true
+        default: test
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zh-short
+  cancel-in-progress: false
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.mode == 'run' && '["0","1","2","3","4","5","6","7"]' || '["0"]') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh2.json
+            /zh2/
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          path: pub
+          sparse-checkout: |
+            /audio/zh/
+            /audio/zh-h/
+            /audio/index-zh.json
+            /audio/index-zh-human.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kokoro + FunASR
+        timeout-minutes: 25
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" "misaki[zh]" soundfile numpy funasr modelscope cn2an pypinyin
+      - name: Pick
+        run: |
+          mkdir -p root out
+          cp -r site/zh2 root/zh2 2>/dev/null || mkdir -p root/zh2
+          ln -s "$PWD/pub/audio/zh" root/zh; ln -s "$PWD/pub/audio/zh-h" root/zh-h
+          python3 - <<'PY'
+          import json, os
+          L = lambda p: json.load(open(p)) if os.path.exists(p) else {}
+          main, z2, human = L('pub/audio/index-zh.json'), L('site/index-zh2.json'), L('pub/audio/index-zh-human.json')
+          json.dump({**main, **z2, **human}, open('merged.json', 'w'), ensure_ascii=False)
+          PY
+          cd src && python3 tools/gen_zh_short.py ${{ inputs.mode }} --root ../root --index ../merged.json --shard ${{ matrix.shard }}/8 --out ../out/part-${{ matrix.shard }}.json
+          cd .. && mkdir -p out/zh2 && for f in $(python3 -c "import json,os;d=json.load(open('out/part-${{ matrix.shard }}.json')) if os.path.exists('out/part-${{ matrix.shard }}.json') else {};print(' '.join(v[0] for v in d.values() if v[1]!='cur'))"); do cp "root/$f" "out/$f"; done
+      - uses: actions/upload-artifact@v4
+        if: inputs.mode == 'run'
+        with:
+          name: short-${{ matrix.shard }}
+          path: out
+          retention-days: 3
+
+  commit:
+    needs: pick
+    if: inputs.mode == 'run'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /index-zh2.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+      - name: Merge and commit
+        run: |
+          python3 - <<'PY'
+          import json, glob, os, shutil
+          idx = json.load(open('index-zh2.json'))
+          rep, n = {}, 0
+          for f in glob.glob('parts/*/part-*.json'):
+              for t, (rel, eng, s) in json.load(open(f)).items():
+                  rep[t] = [eng, s]
+                  if eng != 'cur':
+                      src = glob.glob(f'parts/*/{rel}')
+                      if src:
+                          os.makedirs(os.path.dirname(rel), exist_ok=True)
+                          shutil.copy(src[0], rel)
+                          idx[t] = rel
+                          n += 1
+          json.dump(idx, open('index-zh2.json', 'w'), ensure_ascii=False, separators=(',', ':'))
+          json.dump(rep, open('short-zh.json', 'w'), ensure_ascii=False, separators=(',', ':'))
+          print('replaced', n, 'of', len(rep), 'still unclear', sum(1 for e, s in rep.values() if s < 0.99))
+          PY
+          git config user.name "zh-short-bot"
+          git config user.email "zh-short-bot@users.noreply.github.com"
+          git add --sparse -A index-zh2.json short-zh.json zh2
+          git diff --cached --quiet && exit 0
+          git commit -qm "audio: Chinese short words - clearest recording"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
