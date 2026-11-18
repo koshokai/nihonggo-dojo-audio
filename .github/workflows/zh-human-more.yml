@@ -1,0 +1,62 @@
+# 中文短词的真人发音（扩大范围）：网页上的单字、短词和词典里的词，到 Wikimedia Commons（Lingua Libre、Zh-<词>.ogg）找真人录音，
+# 语音识别确认读的就是这个词才收录。写进本仓库 zh-h2/、index-zh-human2.json、credits-zh-human2.json（作者和授权）。
+# 脚本和词表从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）；只找免费内容和词典里的词。
+name: Chinese short words (more human recordings)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 从 nihonggo-dojo-dev 的哪个分支取
+        required: false
+        default: wip-en
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh-human2.json
+            /credits-zh-human2.json
+            /zh-h2/
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+            lang
+            audio/index-zh-human.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q funasr modelscope pypinyin cn2an
+      - name: Fetch and check
+        env:
+          HUMAN_OUT: ${{ github.workspace }}/site
+        run: cd src && python3 tools/fetch_zh_human_more.py
+      - name: Commit
+        run: |
+          cd site
+          git config user.name "zh-human-bot"
+          git config user.email "zh-human-bot@users.noreply.github.com"
+          git add --sparse -A index-zh-human2.json credits-zh-human2.json zh-h2
+          git diff --cached --quiet && exit 0
+          git commit -qm "audio: Chinese short words - more human recordings (Wikimedia Commons)"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
