@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: ja-course / ja-listen / ja-biz / ja-read / ja-ex / anime-daily / zh / zh-voices / zh-check（中文听写检查，8 台）/ en（可以写几个，空格分开）
+        description: ja-course / ja-listen / ja-biz / ja-read / ja-ex / anime-daily / zh / zh-voices / zh-check（中文听写检查，8 台）/ zh-voices-check（会员听力男声的听写检查）/ en（可以写几个，空格分开）
         required: true
         default: 'zh en'
       ref:
@@ -310,6 +310,40 @@ jobs:
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "没有设置 SUPABASE_SERVICE_ROLE_KEY"; exit 1; }
           python3 tools/gen_member_audio.py zh-voices 2>&1 | python3 -u -c "$REDACT"
+
+  # 会员听力男声台词的听写检查：语音识别听每一条，分数低的换语速重新生成，留下最清楚的
+  zh-voices-check:
+    if: ${{ contains(format(' {0} ', inputs.mode), ' zh-voices-check ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    concurrency:
+      group: member-audio-zh-voices
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ inputs.ref }}
+          path: src
+          sparse-checkout: |
+            tools
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kokoro + FunASR
+        timeout-minutes: 25
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" "misaki[zh]" soundfile numpy funasr modelscope cn2an pypinyin
+      - name: Check & re-record
+        working-directory: src
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash -o pipefail {0}
+        run: python3 tools/gen_member_audio.py zh-voices-check 2>&1 | python3 -u -c "$REDACT"
 
   en:
     if: ${{ contains(format(' {0} ', inputs.mode), ' en ') }}
