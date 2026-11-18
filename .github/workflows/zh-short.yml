@@ -77,8 +77,9 @@ jobs:
           L = lambda p: json.load(open(p)) if os.path.exists(p) else {}
           main, z2, human = L('pub/audio/index-zh.json'), L('site/index-zh2.json'), L('pub/audio/index-zh-human.json')
           json.dump({**main, **z2, **human}, open('merged.json', 'w'), ensure_ascii=False)
+          json.dump(human, open('human.json', 'w'), ensure_ascii=False)
           PY
-          cd src && python3 tools/gen_zh_short.py ${{ inputs.mode }} --root ../root --index ../merged.json --shard ${{ matrix.shard }}/8 --out ../out/part-${{ matrix.shard }}.json
+          cd src && python3 tools/gen_zh_short.py ${{ inputs.mode }} --root ../root --index ../merged.json --shard ${{ matrix.shard }}/8 --out ../out/part-${{ matrix.shard }}.json --human ../human.json
           cd .. && mkdir -p out/zh2 && for f in $(python3 -c "import json,os;d=json.load(open('out/part-${{ matrix.shard }}.json')) if os.path.exists('out/part-${{ matrix.shard }}.json') else {};print(' '.join(v[0] for v in d.values() if v[1]!='cur'))"); do cp "root/$f" "out/$f"; done
       - uses: actions/upload-artifact@v4
         if: inputs.mode == 'run'
