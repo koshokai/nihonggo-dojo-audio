@@ -18,6 +18,10 @@ on:
         description: 校准：只抽样（单字、词、句子各 160 条，加上真人录音 160 条），看识别本身准不准
         type: boolean
         default: false
+      carrier:
+        description: 单字、短词接在一句固定的话后面识别（关掉 = 单独识别，用来对比）
+        type: boolean
+        default: true
       report_from:
         description: 只汇总：填一次已经跑完的检查的 run id（检查结果还在的话，不用重跑检查）
         required: false
@@ -110,7 +114,9 @@ jobs:
               import random, re
               random.seed(7)
               han = lambda t: len(re.findall(r'[一-鿿]', t.split('|')[-1]))
-              cat = {'1': [j for j in jobs if han(j[1]) == 1], '2': [j for j in jobs if han(j[1]) == 2], 's': [j for j in jobs if han(j[1]) >= 6]}
+              hs = set(syl.values())   # 单字的真人音节录音另算一类
+              cat = {'1': [j for j in jobs if han(j[1]) == 1 and j[2] not in hs], 'S1': [j for j in jobs if j[2] in hs],
+                     '2': [j for j in jobs if han(j[1]) == 2], 's': [j for j in jobs if han(j[1]) >= 6]}
               jobs = [['T' + c + ':' + j[0], j[1], j[2]] for c, v in cat.items() for j in random.sample(v, min(160, len(v)))]
               hu = list(human.items())
               jobs += [['H:' + t, t, f] for t, f in random.sample(hu, min(160, len(hu)))]
@@ -118,7 +124,7 @@ jobs:
           json.dump(sorted(set(nofile)), open('out/nofile.json', 'w'), ensure_ascii=False)
           print('recordings to check:', len(jobs), 'texts without a recording:', len(set(nofile)))
           PY
-          python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json --limit ${{ inputs.limit || 0 }}
+          ASR_CARRIER=${{ inputs.carrier && '1' || '0' }} python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json --limit ${{ inputs.limit || 0 }}
       - uses: actions/upload-artifact@v4
         with:
           name: asr-${{ matrix.shard }}
@@ -142,24 +148,25 @@ jobs:
           github-token: ${{ github.token }}
       - name: Merge and commit
         run: |
-          python3 - <<'PY'
-          import json, glob
+          REPORT=${{ inputs.sample && 'asr-zh-sample.json' || 'asr-zh.json' }}
+          python3 - "$REPORT" <<'PY'
+          import json, glob, sys
           res = {}
           for f in glob.glob('parts/*/part-*.json'):
               res.update(json.load(open(f)))
           nofile = json.load(open(glob.glob('parts/*/nofile.json')[0])) if glob.glob('parts/*/nofile.json') else []
           low = {k: v for k, v in res.items() if v[0] < 0.8}
           json.dump({'checked': len(res), 'no_recording': nofile, 'low': dict(sorted(low.items(), key=lambda kv: kv[1][0]))},
-                    open('asr-zh.json', 'w'), ensure_ascii=False, indent=0)
+                    open(sys.argv[1], 'w'), ensure_ascii=False, indent=0)
           print('checked', len(res), 'low', len(low), 'no recording', len(nofile))
           PY
           git config user.name "asr-bot"
           git config user.email "asr-bot@users.noreply.github.com"
-          cp asr-zh.json /tmp/asr-zh.json
+          cp "$REPORT" /tmp/report.json
           # 报告文件每次整个重写：先回到远端最新的版本再放进去（同时有别的提交时不会冲突）
           for i in 1 2 3 4 5; do
-            git fetch -q origin main && git reset -q --hard origin/main && cp /tmp/asr-zh.json asr-zh.json
-            git add --sparse asr-zh.json
+            git fetch -q origin main && git reset -q --hard origin/main && cp /tmp/report.json "$REPORT"
+            git add --sparse "$REPORT"
             git diff --cached --quiet && exit 0
             git commit -qm "audio check: Chinese (speech recognition)" && git push -q origin HEAD:main && exit 0
             sleep $((i * 10))
