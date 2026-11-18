@@ -1,4 +1,4 @@
-# 中文录音的听写检查：用语音识别（faster-whisper small）把网站上每条免费中文录音（MeloTTS 句子和单词、听力男声 Kokoro）听一遍，
+# 中文录音的听写检查：用语音识别（FunASR Paraformer，普通话专用）把网站上每条免费中文录音（MeloTTS 句子和单词、听力男声 Kokoro）听一遍，
 # 和原文（不带声调的拼音）比，找出读漏、读错字、中途断掉、没声音的。结果写进本仓库 asr-zh.json（只有免费内容；日志只打印数量）。
 # 脚本和文字从私有仓库 koshokai/nihonggo-dojo-dev 取（MAIN_REPO_TOKEN，只读）；主站原来的录音从 koshokai/nihonggo-dojo 取。
 name: Chinese audio check (speech recognition)
@@ -10,6 +10,10 @@ on:
         description: 从 nihonggo-dojo-dev 的哪个分支取脚本和文字
         required: false
         default: wip-en
+      limit:
+        description: 每台最多检查多少条（0 = 全部；试跑填 20）
+        required: false
+        default: '0'
 
 permissions:
   contents: write
@@ -61,7 +65,8 @@ jobs:
       - name: Install
         run: |
           which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
-          pip install -q faster-whisper pypinyin cn2an
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -q funasr modelscope pypinyin cn2an
       - name: Check
         run: |
           mkdir -p root out
@@ -89,7 +94,7 @@ jobs:
           json.dump(sorted(set(nofile)), open('out/nofile.json', 'w'), ensure_ascii=False)
           print('recordings to check:', len(jobs), 'texts without a recording:', len(set(nofile)))
           PY
-          python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json
+          python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json --limit ${{ inputs.limit || 0 }}
       - uses: actions/upload-artifact@v4
         with:
           name: asr-${{ matrix.shard }}
