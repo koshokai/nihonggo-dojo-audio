@@ -147,7 +147,13 @@ jobs:
           PY
           git config user.name "asr-bot"
           git config user.email "asr-bot@users.noreply.github.com"
-          git add --sparse asr-zh.json
-          git commit -qm "audio check: Chinese (speech recognition)" || exit 0
-          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          cp asr-zh.json /tmp/asr-zh.json
+          # 报告文件每次整个重写：先回到远端最新的版本再放进去（同时有别的提交时不会冲突）
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main && cp /tmp/asr-zh.json asr-zh.json
+            git add --sparse asr-zh.json
+            git diff --cached --quiet && exit 0
+            git commit -qm "audio check: Chinese (speech recognition)" && git push -q origin HEAD:main && exit 0
+            sleep $((i * 10))
+          done
           exit 1
