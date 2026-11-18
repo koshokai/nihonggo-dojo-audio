@@ -18,9 +18,14 @@ on:
         description: 校准：只抽样（单字、词、句子各 160 条，加上真人录音 160 条），看识别本身准不准
         type: boolean
         default: false
+      report_from:
+        description: 只汇总：填一次已经跑完的检查的 run id（检查结果还在的话，不用重跑检查）
+        required: false
+        default: ''
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: zh-asr
@@ -28,6 +33,7 @@ concurrency:
 
 jobs:
   check:
+    if: ${{ !inputs.report_from }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
@@ -132,6 +138,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: parts
+          run-id: ${{ inputs.report_from || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Merge and commit
         run: |
           python3 - <<'PY'
