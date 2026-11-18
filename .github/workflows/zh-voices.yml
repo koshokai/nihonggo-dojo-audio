@@ -7,6 +7,10 @@ name: Chinese listening voices (Kokoro)
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: listen（生成）/ retake（听写检查 asr-zh.json 里分数低的台词换语速重新生成）
+        required: false
+        default: listen
       limit:
         description: 最多生成多少句（0 = 全部；试跑时填 5）
         required: false
@@ -37,6 +41,8 @@ jobs:
           path: site
           sparse-checkout: |
             /index-zh-voices.json
+            /index-zh-voices-retake.json
+            /asr-zh.json
             /zh-v/
           sparse-checkout-cone-mode: false
       - uses: actions/checkout@v4
@@ -58,12 +64,13 @@ jobs:
           sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
           pip install -q "kokoro>=0.9" "misaki[zh]" soundfile numpy
+          if [ "${{ inputs.mode }}" = retake ]; then pip install -q torchaudio --index-url https://download.pytorch.org/whl/cpu; pip install -q funasr modelscope pypinyin cn2an; fi
       - name: Generate
         shell: bash -o pipefail {0}
         env:
           KOKORO_FORCE: ${{ inputs.force && '1' || '' }}
           ZH_VOICES_DIR: ${{ github.workspace }}/site
-        run: python3 src/tools/gen_audio_zh_voices.py listen --limit "${{ inputs.limit || '0' }}" 2>&1 | LC_ALL=C sed -e 's/.*[^ -~].*/  (detail hidden)/'
+        run: python3 src/tools/gen_audio_zh_voices.py "${{ inputs.mode || 'listen' }}" --report "$ZH_VOICES_DIR/asr-zh.json" --limit "${{ inputs.limit || '0' }}" 2>&1 | LC_ALL=C sed -e 's/.*[^ -~].*/  (detail hidden)/'
       - name: Commit
         if: always()
         working-directory: site
@@ -71,6 +78,7 @@ jobs:
           git config user.name "kokoro-bot"
           git config user.email "kokoro-bot@users.noreply.github.com"
           git add --sparse -A index-zh-voices.json zh-v 2>/dev/null || git add -A
+          [ -f index-zh-voices-retake.json ] && git add --sparse index-zh-voices-retake.json
           git diff --cached --quiet && exit 0
           echo "files: $(git diff --cached --name-only | wc -l)"
           git commit -qm "audio: Chinese listening voices (Kokoro)"
