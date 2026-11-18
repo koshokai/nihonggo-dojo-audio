@@ -18,10 +18,10 @@ on:
         description: 校准：只抽样（单字、词、句子各 160 条，加上真人录音 160 条），看识别本身准不准
         type: boolean
         default: false
-      carrier:
-        description: 单字、短词接在一句固定的话后面识别（关掉 = 单独识别，用来对比）
-        type: boolean
-        default: true
+      ctx:
+        description: 单字、短词怎么识别：plain（单独）/ lead（前面接一句固定的话）/ wrap（前后各接一句）/ repeat（连放三遍）
+        required: false
+        default: plain
       report_from:
         description: 只汇总：填一次已经跑完的检查的 run id（检查结果还在的话，不用重跑检查）
         required: false
@@ -124,7 +124,7 @@ jobs:
           json.dump(sorted(set(nofile)), open('out/nofile.json', 'w'), ensure_ascii=False)
           print('recordings to check:', len(jobs), 'texts without a recording:', len(set(nofile)))
           PY
-          ASR_CARRIER=${{ inputs.carrier && '1' || '0' }} python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json --limit ${{ inputs.limit || 0 }}
+          ASR_CTX=${{ inputs.ctx || 'plain' }} python3 src/tools/asr_check_zh.py --jobs jobs.json --root root --shard ${{ matrix.shard }}/8 --out out/part-${{ matrix.shard }}.json --limit ${{ inputs.limit || 0 }} ${{ inputs.sample && '--compare' || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: asr-${{ matrix.shard }}
