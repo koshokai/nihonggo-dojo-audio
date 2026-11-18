@@ -1,0 +1,61 @@
+# 中文听力女声试听：同样几段听力对话，男声不变，女声分别用现在的 MeloTTS 和 Kokoro 的四个普通话女声
+# 试听页面：https://koshokai.github.io/nihonggo-dojo-audio/samples/zh-female.html
+name: Chinese voice samples (female)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+          sparse-checkout: |
+            /index-zh2.json
+            /index-zh-voices.json
+            /zh2/
+            /zh-v/
+            /samples/
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo
+          path: pub
+          sparse-checkout: |
+            /audio/zh/
+            /audio/index-zh.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v4
+        with:
+          repository: koshokai/nihonggo-dojo-dev
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: wip-en
+          path: src
+          sparse-checkout: |
+            tools
+            lang/zh-listen.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kokoro
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq espeak-ng ffmpeg
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "kokoro>=0.9" "misaki[zh]" soundfile numpy
+      - name: Samples
+        run: |
+          mkdir -p root && ln -s "$PWD/site/zh2" root/zh2 && ln -s "$PWD/site/zh-v" root/zh-v && ln -s "$PWD/pub/audio/zh" root/zh
+          python3 -c "import json;a=json.load(open('pub/audio/index-zh.json'));b=json.load(open('site/index-zh2.json'));json.dump({**a,**b},open('merged.json','w'),ensure_ascii=False)"
+          python3 src/tools/zh_female_samples.py --out site --root root --index merged.json --voices site/index-zh-voices.json
+      - name: Commit
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --sparse samples
+          git diff --cached --quiet && exit 0
+          git commit -qm "voice samples: Chinese female"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
