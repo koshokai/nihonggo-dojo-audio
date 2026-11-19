@@ -1,0 +1,60 @@
+# 真人单词录音（Commons / Lingua Libre）的听写检查：faster-whisper 听一遍，和单词比，找出录错词、录了一半、听不清的。
+# 只有公开的单词录音；结果写进本仓库 asr-human-en.json / asr-human-ja.json（日志只打印数量）。
+name: Human recordings check (speech recognition)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 每种语言最多检查多少条（0 = 全部；试跑填 20）
+        required: false
+        default: '0'
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [en, ja]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /tools/
+            /index-en-human.json
+            /en-h/
+            /ja/index-ja-human.json
+            /ja/ja-h/
+          sparse-checkout-cone-mode: false
+      - run: pip install -q faster-whisper pykakasi
+      - run: python3 tools/asr_human.py ${{ matrix.lang }} ${{ inputs.limit }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asr-human-${{ matrix.lang }}
+          path: asr-human-${{ matrix.lang }}.json
+  report:
+    needs: check
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: /tools/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: asr-human-*
+          merge-multiple: true
+      - run: |
+          set -e
+          ls asr-human-*.json
+          git config user.name "asr-bot"; git config user.email "asr-bot@users.noreply.github.com"
+          git add -f asr-human-*.json
+          git diff --cached --quiet && exit 0
+          git commit -qm "Human recordings: speech recognition check"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep $((i * 10)); done
+          exit 1
