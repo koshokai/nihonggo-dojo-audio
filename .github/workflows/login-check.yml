@@ -39,3 +39,5 @@ jobs:
           except Exception as e:
               print('  读不出 state:', type(e).__name__, 'host', u.urlparse(sys.argv[1]).netloc)
           PY
+          echo "== LINE 函数是不是新版本（App 用的 POST：新版本对假的 ID token 回 400 failed；旧版本回 405 method not allowed）"
+          curl -s -w "  [%{http_code}]\n" -X POST "$U/functions/v1/line-auth" -H "apikey: $K" -H "Content-Type: application/json" -d '{"id_token":"not-a-real-token"}'
