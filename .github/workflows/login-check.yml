@@ -1,0 +1,24 @@
+# 检查一键登录的后台配置（第 22 节）：LINE 函数能不能跳到 LINE、会不会拒绝别的跳转地址；Supabase 里开了哪些登录方式。
+# 只打印状态码、跳转到的网站和开关，不打印任何密钥或令牌。在 Actions 页面手动运行。
+name: Login check
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check
+        run: |
+          # 网站 config.js 里公开的地址和 Publishable key（本来就在网页里，不是密码）
+          C=$(curl -s https://raw.githubusercontent.com/koshokai/nihonggo-dojo/main/config.js)
+          U=$(echo "$C" | grep -oP "url: '\K[^']+"); K=$(echo "$C" | grep -oP "anonKey: '\K[^']+")
+          echo "== Supabase 开通的登录方式"
+          curl -s "$U/auth/v1/settings" -H "apikey: $K" | python3 -c "import json,sys; e=json.load(sys.stdin).get('external',{}); print({k: v for k, v in e.items() if k in ('apple','google','facebook','email')})"
+          echo "== LINE：正常跳转（应为 302 → access.line.me，带 client_id）"
+          curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "$U/functions/v1/line-auth?redirect=https%3A%2F%2Fkoshokai.github.io%2Fnihonggo-dojo%2F" \
+            | python3 -c "import sys,urllib.parse as u; c,_,l=sys.stdin.read().strip().partition(' '); p=u.urlparse(l); q=u.parse_qs(p.query); print(c, p.netloc, 'client_id' if q.get('client_id') else 'NO client_id', 'redirect_uri=' + (q.get('redirect_uri') or ['?'])[0], 'scope=' + (q.get('scope') or ['?'])[0])"
+          echo "== LINE：App 的跳转地址（应为 302 → access.line.me）"
+          curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "$U/functions/v1/line-auth?redirect=com.koshokai.omnisphere%3A%2F%2Flogin" | python3 -c "import sys,urllib.parse as u; c,_,l=sys.stdin.read().strip().partition(' '); print(c, u.urlparse(l).netloc)"
+          echo "== LINE：别的网站（应为 400 bad redirect）"
+          curl -s -w "  [%{http_code}]\n" "$U/functions/v1/line-auth?redirect=https%3A%2F%2Fexample.com%2F"
+          echo "== LINE：伪造的回调（应为 400 bad state）"
+          curl -s -w "  [%{http_code}]\n" "$U/functions/v1/line-auth?code=x&state=abc.def"
