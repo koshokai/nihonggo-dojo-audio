@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: reading（阅读、每周精选、水平测试）/ biz（商务）/ daily（今日一句）/ words（单词，level 填级别）/ examples（例句，level 填 N5,N4）/ conj（变形练习、魔鬼挑战的难读词）/ course（情景课程）
+        description: reading（阅读、每周精选、水平测试）/ biz（商务）/ daily（今日一句）/ words（单词，level 填级别）/ examples（例句，level 填 N5,N4）/ conj（变形练习、魔鬼挑战的难读词）/ course（情景课程）；可以写几个，空格分开
         required: true
         default: reading
       level:
@@ -60,9 +60,12 @@ jobs:
         run: |
           mkdir -p out && cp site/ja/index-*.json out/ && cp site/ja/voice.json out/ 2>/dev/null || true
           for i in $(seq 100); do curl -sf http://127.0.0.1:50021/version >/dev/null && break; sleep 3; done
-          ARGS="${{ inputs.mode }}"
-          [ -n "${{ inputs.level }}" ] && ARGS="$ARGS --level ${{ inputs.level }}"
-          JA_AUDIO_DIR=$GITHUB_WORKSPACE/out python3 src/tools/gen_audio.py $ARGS
+          # mode 可以写几个（空格分开），按顺序一个个跑（同一时间只能排队一次，分开触发会互相取消）
+          for m in ${{ inputs.mode }}; do
+            ARGS="$m"
+            if [ -n "${{ inputs.level }}" ] && { [ "$m" = examples ] || [ "$m" = words ]; }; then ARGS="$ARGS --level ${{ inputs.level }}"; fi
+            JA_AUDIO_DIR=$GITHUB_WORKSPACE/out python3 src/tools/gen_audio.py $ARGS
+          done
       - name: Commit new files
         run: |
           set -e
