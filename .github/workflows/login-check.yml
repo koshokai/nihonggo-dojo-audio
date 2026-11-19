@@ -15,7 +15,7 @@ jobs:
           curl -s "$U/auth/v1/settings" -H "apikey: $K" | python3 -c "import json,sys; e=json.load(sys.stdin).get('external',{}); print({k: v for k, v in e.items() if k in ('apple','google','facebook','email')})"
           echo "== LINE：正常跳转（应为 302 → access.line.me，带 client_id）"
           curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "$U/functions/v1/line-auth?redirect=https%3A%2F%2Fkoshokai.github.io%2Fnihonggo-dojo%2F" \
-            | python3 -c "import sys,urllib.parse as u; c,_,l=sys.stdin.read().strip().partition(' '); p=u.urlparse(l); q=u.parse_qs(p.query); print(c, p.netloc, 'client_id' if q.get('client_id') else 'NO client_id', 'redirect_uri=' + (q.get('redirect_uri') or ['?'])[0], 'scope=' + (q.get('scope') or ['?'])[0])"
+            | python3 -c "import sys,urllib.parse as u; c,_,l=sys.stdin.read().strip().partition(' '); p=u.urlparse(l); q=u.parse_qs(p.query); print(c, p.netloc, 'client_id=' + (q.get('client_id') or ['NONE'])[0], 'redirect_uri=' + (q.get('redirect_uri') or ['?'])[0], 'scope=' + (q.get('scope') or ['?'])[0])"
           echo "== LINE：App 的跳转地址（应为 302 → access.line.me）"
           curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "$U/functions/v1/line-auth?redirect=com.koshokai.omnisphere%3A%2F%2Flogin" | python3 -c "import sys,urllib.parse as u; c,_,l=sys.stdin.read().strip().partition(' '); print(c, u.urlparse(l).netloc)"
           echo "== LINE：别的网站（应为 400 bad redirect）"
