@@ -31,7 +31,7 @@ jobs:
             /ja/index-ja-human.json
             /ja/ja-h/
           sparse-checkout-cone-mode: false
-      - run: pip install -q faster-whisper pykakasi
+      - run: (which ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)) && pip install -q faster-whisper pykakasi
       - run: python3 tools/asr_human.py ${{ matrix.lang }} ${{ inputs.limit }}
       - uses: actions/upload-artifact@v4
         with:
