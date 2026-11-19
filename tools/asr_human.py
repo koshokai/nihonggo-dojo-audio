@@ -1,7 +1,8 @@
 """真人录音（Wikimedia Commons / Lingua Libre 的志愿者录音）的听写检查：用 faster-whisper 把每条录音听一遍，和单词比，
 找出录错词、只录了一半、听不清的。只检查公开的单词录音（index-en-human.json、ja/index-ja-human.json），结果写进 asr-human-<lang>.json。
     python3 tools/asr_human.py en|ja [limit]"""
-import difflib, json, re, sys, unicodedata
+import difflib, json, re, subprocess, sys, unicodedata
+import numpy as np
 from faster_whisper import WhisperModel
 
 lang = sys.argv[1]
@@ -24,7 +25,9 @@ else:
 
 out = []
 for i, (w, f) in enumerate(items):
-    segs, _ = model.transcribe(base + f, language=lang, beam_size=5, vad_filter=False, condition_on_previous_text=False,
+    pcm = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', base + f, '-ac', '1', '-ar', '16000', '-f', 's16le', '-'], capture_output=True).stdout
+    audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768   # 自己解码（faster-whisper 自带的解码和新版 PyAV 不兼容）
+    segs, _ = model.transcribe(audio, language=lang, beam_size=5, vad_filter=False, condition_on_previous_text=False,
                                initial_prompt=None, without_timestamps=True)
     hyp = ''.join(s.text for s in segs).strip()
     a, b = norm(w), norm(hyp)
