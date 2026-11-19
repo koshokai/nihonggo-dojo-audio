@@ -26,3 +26,16 @@ jobs:
           for e in line-test@line.invalid line-test@example.com; do
             echo -n "  $e: "; curl -s -w "  [%{http_code}]\n" -X POST "$U/auth/v1/otp" -H "apikey: $K" -H "Content-Type: application/json" -d "{\"email\":\"$e\",\"create_user\":false}" | head -c 200; echo
           done
+          echo "== 跳回 App 的地址有没有被 Supabase 接受（看 Google 登录的 state 里记的回跳地址；不接受时会变成网站地址）"
+          L=$(curl -s -o /dev/null -w "%{redirect_url}" "$U/auth/v1/authorize?provider=google&redirect_to=com.koshokai.omnisphere%3A%2F%2Flogin")
+          python3 - "$L" <<'PY'
+          import sys, json, base64, urllib.parse as u
+          q = u.parse_qs(u.urlparse(sys.argv[1]).query)
+          st = (q.get('state') or [''])[0]
+          try:
+              p = st.split('.')[1]; p += '=' * (-len(p) % 4)
+              d = json.loads(base64.urlsafe_b64decode(p))
+              print('  回跳地址（referrer）:', d.get('referrer') or d.get('site_url') or '(无)')
+          except Exception as e:
+              print('  读不出 state:', type(e).__name__, 'host', u.urlparse(sys.argv[1]).netloc)
+          PY
