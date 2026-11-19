@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: reading（阅读、每周精选、水平测试）/ biz（商务）/ daily（今日一句）/ words（单词，level 填级别）/ examples（例句，level 填 N5,N4）
+        description: reading（阅读、每周精选、水平测试）/ biz（商务）/ daily（今日一句）/ words（单词，level 填级别）/ examples（例句，level 填 N5,N4）/ conj（变形练习、魔鬼挑战的难读词）/ course（情景课程）
         required: true
         default: reading
       level:
