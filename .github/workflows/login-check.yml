@@ -22,3 +22,7 @@ jobs:
           curl -s -w "  [%{http_code}]\n" "$U/functions/v1/line-auth?redirect=https%3A%2F%2Fexample.com%2F"
           echo "== LINE：伪造的回调（应为 400 bad state）"
           curl -s -w "  [%{http_code}]\n" "$U/functions/v1/line-auth?code=x&state=abc.def"
+          echo "== 占位邮箱能不能被 Supabase 接受（只问「这个邮箱能不能用」，create_user=false，不会建账号也不会发信）"
+          for e in line-test@line.invalid line-test@example.com; do
+            echo -n "  $e: "; curl -s -w "  [%{http_code}]\n" -X POST "$U/auth/v1/otp" -H "apikey: $K" -H "Content-Type: application/json" -d "{\"email\":\"$e\",\"create_user\":false}" | head -c 200; echo
+          done
