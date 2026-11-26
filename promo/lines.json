@@ -1,7 +1,7 @@
 [
  ["p01", "はじめまして！猫先生のミケです。いっしょに、ことばの勉強をはじめませんか？", "Nice to meet you! I'm Mike, the calico cat of Neko Sensei. Want to learn a new language with me?", "初次见面！我是猫先生的三花猫小咪。要不要和我一起学语言呀？", "はじめまして！猫先生のミケです。いっしょに、ことばの勉強をはじめませんか？"],
  ["p02", "猫先生では、日本語・中国語・英語の三つが学べます。", "With Neko Sensei, you can learn Japanese, Chinese and English.", "在「猫先生」，日语、中文、英语三种语言都能学。", "猫先生では、日本語・中国語・英語の三つが学べます。"],
- ["p03", "中国語が母語の人は日本語と英語、日本語が母語の人は中国語と英語、英語が母語の人は日本語と中国語。説明はぜんぶ、あなたの言葉です。", "Chinese speakers learn Japanese or English. Japanese speakers learn Chinese or English. English speakers learn Japanese or Chinese. Every explanation is in your own language.", "中文母语学日语、英语；日语母语学中文、英语；英语母语学日语、中文。所有讲解都用你的母语。", "中国語ネイティブは日本語・英語、日本語ネイティブは中国語・英語、英語ネイティブは日本語・中国語。説明はぜんぶ、あなたの言葉で。"],
+ ["p03", "日本語が母語の人は、中国語と英語。英語が母語の人は、日本語と中国語。説明はぜんぶ、あなたの言葉です。", "Japanese speakers learn Chinese and English. English speakers learn Japanese and Chinese. Every explanation is in your own language.", "日语母语的人学中文和英语，英语母语的人学日语和中文。所有讲解都用你的母语。", "日本語ネイティブは中国語・英語、英語ネイティブは日本語・中国語。説明はぜんぶ、あなたの言葉で。"],
  ["p04", "まずはかんたんなレベルチェック。あなたにぴったりの学習ルートを作ります。", "Start with a quick level check, and get a learning path made just for you.", "先做个简单的水平测试，为你量身定制学习路线。", "まずはかんたんなレベルチェック。あなたにぴったりの学習ルートを作ります。"],
  ["p05", "写真つきの読み物は、三つの言語あわせて二千本以上。わからない単語は、タップするだけ！", "Over 2,000 illustrated readings across three languages. Don't know a word? Just tap it!", "带照片的读物，三种语言加起来超过两千篇。不认识的词，点一下就行！", "写真つきの読み物は、3つの言語あわせて2000本以上。わからない単語は、タップするだけ！"],
  ["p06", "ぜんぶ音声つきだから、聞き取りの練習もばっちりです。", "Everything comes with audio, so you can practice listening, too.", "全部配有语音，听力练习也没问题。", "ぜんぶ音声つきだから、聞き取りの練習もばっちりです。"],
