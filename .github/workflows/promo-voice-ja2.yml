@@ -1,0 +1,28 @@
+# 宣传动画第二版的日语配音（VOICEVOX:冥鳴ひまり）：读 promo/lines-ja2.json，生成 promo/voice-ja2/*.wav 和口型用的音拍时间，提交回本仓库。
+name: Promo voice 2 (VOICEVOX)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [promo/lines-ja2.json]
+permissions:
+  contents: write
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: promo
+      - name: Engine
+        run: |
+          docker run -d --name voicevox --log-driver none -p 50021:50021 voicevox/voicevox_engine:cpu-latest > /dev/null
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:50021/version && break; sleep 3; done
+      - name: Generate
+        run: mkdir -p promo/voice-ja2 && python3 promo/voice.py promo/lines-ja2.json promo/voice-ja2 14
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add promo/voice-ja2
+          git diff --cached --quiet || { git commit -qm "promo: voice 2 (VOICEVOX:冥鳴ひまり)" && git pull -q --rebase && git push -q; }
