@@ -5,7 +5,7 @@ E = 'http://127.0.0.1:50021'
 LINES = sys.argv[1] if len(sys.argv) > 1 else 'promo/lines.json'
 OUT = sys.argv[2] if len(sys.argv) > 2 else 'promo/voice'
 SPK = int(sys.argv[3]) if len(sys.argv) > 3 else 8
-TUNE = dict(speedScale=1.05, intonationScale=1.25, pitchScale=0.02) if SPK == 8 else dict(speedScale=1.08, intonationScale=1.15, pitchScale=0.0)
+TUNE = {8: dict(speedScale=1.05, intonationScale=1.25, pitchScale=0.02), 2: dict(speedScale=1.18, intonationScale=1.55, pitchScale=0.04, volumeScale=1.1)}.get(SPK, dict(speedScale=1.08, intonationScale=1.15, pitchScale=0.0))
 for key, ja, *_ in json.load(open(LINES, encoding='utf-8')):
     q = json.loads(urllib.request.urlopen(urllib.request.Request(f'{E}/audio_query?' + urllib.parse.urlencode({'text': ja, 'speaker': SPK}), method='POST')).read())
     q.update(TUNE); q['prePhonemeLength'] = 0.05; q['postPhonemeLength'] = 0.15
